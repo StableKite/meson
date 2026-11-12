@@ -1,0 +1,30 @@
+Description: Fix Boost.Python test to request version-specific library
+ Meson's Boost dependency resolver uses startswith() to match library names,
+ which causes libboost_python313.so to be selected when only 'python3' is
+ requested and the running Python is 3.14. The resulting extension module is
+ compiled for the Python 3.14 ABI but linked against a 3.13 library, leading
+ to a segfault at import time.
+ .
+ Work around this in the test by deriving the exact Boost Python module name
+ from the detected Python installation (e.g. 'python314' for Python 3.14),
+ and marking the dependency required:false so the test is skipped cleanly
+ when no matching library is installed.
+Author: Nadzeya Hutsko <nadzeya.hutsko@canonical.com>
+Forwarded: https://github.com/mesonbuild/meson/issues/15596
+Last-Update: 2026-03-04
+
+diff --git a/test cases/frameworks/1 boost/meson.build b/test cases/frameworks/1 boost/meson.build
+index 2e22cbf3..548ca0fb 100644
+--- a/test cases/frameworks/1 boost/meson.build	
++++ b/test cases/frameworks/1 boost/meson.build	
+@@ -37,7 +37,9 @@ else
+ endif
+
+ if(python3dep.found() and require_bp and not s)
+-  bpython3dep = dependency('boost', static: s, modules : ['python3'])
++  _py3_ver = python3.language_version().split('.')
++  _py3_tag = _py3_ver[0] + _py3_ver[1]
++  bpython3dep = dependency('boost', static: s, modules : ['python' + _py3_tag], required: false, disabler: true)
+ else
+   python3dep = disabler()
+   bpython3dep = disabler()
