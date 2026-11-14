@@ -3,3 +3,4 @@
 lp2049904.patch
 llvm-22.diff
 boost-resolve-python-version.patch
+ft-abi3t-limited-api-test.patch
