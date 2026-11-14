@@ -1,0 +1,67 @@
+Description: Update limited-API Meson test for Python 3.15 free threading
+Forwarded: no
+
+--- a/test cases/python/9 extmodule limited api/meson.build
++++ b/test cases/python/9 extmodule limited api/meson.build
+@@ -4,13 +4,17 @@
+ py_mod = import('python')
+ py = py_mod.find_installation()
+ 
+-if py.get_variable('Py_GIL_DISABLED', 0) == 1 and py.language_version().version_compare('<3.15')
+-  error('MESON_SKIP_TEST: Freethreading Python does not support limited API')
++limited_api_version = '3.7'
++if py.get_variable('Py_GIL_DISABLED', 0) == 1
++  if py.language_version().version_compare('<3.15')
++    error('MESON_SKIP_TEST: Freethreading Python does not support limited API')
++  endif
++  limited_api_version = '3.15'
+ endif
+ 
+ ext_mod_limited = py.extension_module('limited',
+   'limited.c',
+-  limited_api: '3.7',
++  limited_api: limited_api_version,
+   install: true,
+ )
+ 
+--- a/test cases/python/9 extmodule limited api/limited.c
++++ b/test cases/python/9 extmodule limited api/limited.c
+@@ -2,6 +2,10 @@
+ 
+ #ifndef Py_LIMITED_API
+ #error Py_LIMITED_API must be defined.
++#elif defined(Py_TARGET_ABI3T)
++#if Py_LIMITED_API != 0x030F0000
++#error Wrong free-threaded value for Py_LIMITED_API
++#endif
+ #elif Py_LIMITED_API != 0x03070000
+ #error Wrong value for Py_LIMITED_API
+ #endif
+@@ -16,6 +20,22 @@
+     { NULL, NULL, 0, NULL },
+ };
+ 
++#ifdef Py_TARGET_ABI3T
++PyABIInfo_VAR(abi_info);
++
++static PySlot limited_slots[] = {
++    PySlot_STATIC_DATA(Py_mod_abi, &abi_info),
++    PySlot_STATIC_DATA(Py_mod_name, "limited"),
++    PySlot_STATIC_DATA(Py_mod_methods, methods),
++    PySlot_DATA(Py_mod_gil, Py_MOD_GIL_NOT_USED),
++    PySlot_END
++};
++
++PyMODEXPORT_FUNC
++PyModExport_limited(void) {
++    return limited_slots;
++}
++#else
+ static struct PyModuleDef limited_module = {
+    PyModuleDef_HEAD_INIT,
+    "limited",
+@@ -27,3 +47,4 @@
+ PyMODINIT_FUNC PyInit_limited(void) {
+     return PyModule_Create(&limited_module);
+ }
++#endif
