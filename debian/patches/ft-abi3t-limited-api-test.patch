@@ -1,8 +1,8 @@
-Description: Update limited-API Meson test for Python 3.15 free threading
+Description: Update Meson limited-API tests for Python 3.15 free threading
 Forwarded: no
 
---- a/test cases/python/9 extmodule limited api/meson.build
-+++ b/test cases/python/9 extmodule limited api/meson.build
+--- a/test cases/python/9 extmodule limited api/meson.build	
++++ b/test cases/python/9 extmodule limited api/meson.build	
 @@ -4,13 +4,17 @@
  py_mod = import('python')
  py = py_mod.find_installation()
@@ -24,8 +24,8 @@ Forwarded: no
    install: true,
  )
  
---- a/test cases/python/9 extmodule limited api/limited.c
-+++ b/test cases/python/9 extmodule limited api/limited.c
+--- a/test cases/python/9 extmodule limited api/limited.c	
++++ b/test cases/python/9 extmodule limited api/limited.c	
 @@ -2,6 +2,10 @@
  
  #ifndef Py_LIMITED_API
@@ -63,5 +63,58 @@ Forwarded: no
 @@ -27,3 +47,4 @@
  PyMODINIT_FUNC PyInit_limited(void) {
      return PyModule_Create(&limited_module);
+ }
++#endif
+
+--- a/test cases/unit/126 python extension/meson.build	
++++ b/test cases/unit/126 python extension/meson.build	
+@@ -8,6 +8,10 @@
+ )
+ 
+ limited_api_supported = true
++limited_api_version = '3.2'
++if py.get_variable('Py_GIL_DISABLED', 0) == 1 and py.language_version().version_compare('>=3.15')
++  limited_api_version = '3.15'
++endif
+ if py.language_version().version_compare('>=3.13') and py.language_version().version_compare('<3.15')
+   limited_api_supported = py.get_variable('Py_GIL_DISABLED') != 1
+ endif
+@@ -15,6 +19,6 @@
+   py.extension_module(
+       'foo_stable', 'foo.c',
+       install: true,
+-      limited_api: '3.2',
++      limited_api: limited_api_version,
+   )
+ endif
+
+--- a/test cases/unit/126 python extension/foo.c	
++++ b/test cases/unit/126 python extension/foo.c	
+@@ -15,6 +15,22 @@
+ };
+ 
+ 
++#ifdef Py_TARGET_ABI3T
++PyABIInfo_VAR(foo_abi_info);
++
++static PySlot foo_stable_slots[] = {
++    PySlot_STATIC_DATA(Py_mod_abi, &foo_abi_info),
++    PySlot_STATIC_DATA(Py_mod_name, "foo_stable"),
++    PySlot_STATIC_DATA(Py_mod_methods, foo_methods),
++    PySlot_DATA(Py_mod_gil, Py_MOD_GIL_NOT_USED),
++    PySlot_END
++};
++
++PyMODEXPORT_FUNC
++PyModExport_foo_stable(void) {
++    return foo_stable_slots;
++}
++#else
+ static struct PyModuleDef foo_module = {
+     PyModuleDef_HEAD_INIT,
+     "foo", /* m_name */
+@@ -29,3 +45,4 @@
+ {
+     return PyModule_Create(&foo_module);
  }
 +#endif
